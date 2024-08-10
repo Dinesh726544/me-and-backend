@@ -2,6 +2,15 @@ import mongoose, { Schema } from "mongoose";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
+/**
+ * username
+ * email
+ * fullName
+ * avatar
+ * coverIamge
+ * password
+ */
+
 const userSchema = new Schema(
   {
     username: {
