@@ -7,7 +7,7 @@ import bcrypt from "bcrypt";
  * email
  * fullName
  * avatar
- * coverIamge
+ * coverImage
  * password
  */
 
