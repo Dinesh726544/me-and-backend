@@ -1,7 +1,7 @@
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { User } from "../models/user.model.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { uploadOnCloudinary,deleteImageFromCloudinary } from "../utils/cloudinary.js";
 import {ApiResponse} from "../utils/ApiResponse.js"
 import  jwt  from "jsonwebtoken";
 
@@ -211,10 +211,11 @@ const logoutUser = asyncHandler(async(req, res) => {
   .json(new ApiResponse(200, {}, "User logged Out"))
 })
 
+//this is not working dont till now will be trying later
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
 
-  console.log("after",incomingRefreshToken);
+  console.log("after \n",incomingRefreshToken);
   
 
   if (!incomingRefreshToken) {
@@ -227,7 +228,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
           process.env.REFRESH_TOKEN_SECRET
       )
 
-      console.log(`befor ${decodedToken}`);
+      console.log(`befor \n ${decodedToken}`);
       
   
       const user = await User.findById(decodedToken?._id)
@@ -299,7 +300,7 @@ const getCurrentUser = asyncHandler(async(req, res) => {
 const updateAccountDetails = asyncHandler(async(req, res) => {
     const {fullName, email} = req.body
 
-    if (!fullName || !email) {
+    if (!fullName && !email) {
         throw new ApiError(400, "All fields are required")
     }
 
@@ -321,6 +322,8 @@ const updateAccountDetails = asyncHandler(async(req, res) => {
 });
 
 const updateUserAvatar = asyncHandler(async(req, res) => {
+    console.log("req.file :: ",req.file);
+    
     const avatarLocalPath = req.file?.path
 
     if (!avatarLocalPath) {
@@ -344,14 +347,10 @@ const updateUserAvatar = asyncHandler(async(req, res) => {
       
       // Get public_id from URL
       const publicId = getPublicIdFromUrl(imageUrl);
-      console.log(publicId); 
-
-      const deleteImageFromCloudinary = asyncHandler(async(publicId) => {
-        const result = await cloudinary.uploader.destroy(publicId);
-        console.log('Image deleted successfully:', result);
-      })
+      console.log("publicId :: ",publicId); 
 
       deleteImageFromCloudinary(publicId);
+
 
       
     const avatar = await uploadOnCloudinary(avatarLocalPath)
@@ -379,6 +378,8 @@ const updateUserAvatar = asyncHandler(async(req, res) => {
 })
 
 const updateUserCoverImage = asyncHandler(async(req, res) => {
+    console.log(req.file);
+    
     const coverImageLocalPath = req.file?.path
 
     if (!coverImageLocalPath) {
@@ -412,10 +413,83 @@ const updateUserCoverImage = asyncHandler(async(req, res) => {
     )
 })
 
+const getUserChannelProfile = asyncHandler(async(req, res) => {
+    const {username} = req.params
+
+    if (!username?.trim()) {
+        throw new ApiError(400, "username is missing")
+    }
+
+    const channel = await User.aggregate([
+        {
+            $match: {
+                username: username?.toLowerCase()
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"                
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        {
+            $addFields: {
+                subscribersCount: {
+                    $size: "$subscribers"
+                },
+                channelsSubscribedToCount: {
+                    $size: "$subscribedTo"
+                },
+                isSubscribed: {
+                    $cond: {
+                        if: {$in: [req.user?._id, "$subscribers.subscriber"]},
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                fullName: 1,
+                username: 1,
+                subscribersCount: 1,
+                channelsSubscribedToCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1
+
+            }
+        }
+    ])
+
+    console.log(channel);
+    
+
+    if (!channel?.length) {
+        throw new ApiError(404, "channel does not exists")
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, channel[0], "User channel fetched successfully")
+    )
+})
 
 
 
 
 
-
-export { registerUser,loginUser,logoutUser,refreshAccessToken,changeCurrentPassword,getCurrentUser,updateAccountDetails,updateUserAvatar,updateUserCoverImage };
+export { registerUser,loginUser,logoutUser,refreshAccessToken,changeCurrentPassword,getCurrentUser,updateAccountDetails,updateUserAvatar,updateUserCoverImage,getUserChannelProfile };
