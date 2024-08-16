@@ -8,14 +8,14 @@ export const verifyJWT = asyncHandler(async(req, _, next) => {
         const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "")
         // const rtoken = req.cookies?.refreshToken || req.header("Authorization")?.replace("Bearer ", "")
         
-        console.log("after -> \n",token);
+        // console.log("after -> \n",token);
         if (!token) {
             throw new ApiError(401, "Unauthorized request")
         }
     
         const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
         // const rdecodedToken = jwt.verify(rtoken, process.env.REFRESH_TOKEN_SECRET)
-        console.log(`befor \n` , decodedToken);
+        // console.log(`befor \n` , decodedToken);
         
     
         const user = await User.findById(decodedToken?._id).select("-password -refreshToken")
